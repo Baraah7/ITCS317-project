@@ -13,6 +13,7 @@ public class CoffeeMachine {
     private String selectedDrink;
     private boolean resourcesAvailable = true; // Assume resources are available initially
     private Timer timer;
+    private boolean isPoweredOn = false; // Tracks the power state
 
     public CoffeeMachine() {
         initializeGUI();
@@ -50,24 +51,36 @@ public class CoffeeMachine {
         frame.setVisible(true);
     }
 
+    private void togglePower() {
+        isPoweredOn = !isPoweredOn; // Toggle the power state
+        if (isPoweredOn) {
+            messageLabel.setText("Machine is ON. Select a drink.");
+            espressoButton.setEnabled(true);
+            latteButton.setEnabled(true);
+            refillButton.setEnabled(true);
+        } else {
+            messageLabel.setText("Machine is OFF. Press Power to Start.");
+            espressoButton.setEnabled(false);
+            latteButton.setEnabled(false);
+            insertMoneyButton.setEnabled(false);
+            refillButton.setEnabled(false);
+            if (timer != null) {
+                timer.cancel(); // Stop the timer when powered off
+            }
+        }
+        
+    }
+
     private void setupEventListeners() {
-        powerButton.addActionListener(e -> startMachine());
-        espressoButton.addActionListener(e -> selectDrink("Espresso", 0.5));
-        latteButton.addActionListener(e -> selectDrink("Coffee Latte", 0.7));
+        powerButton.addActionListener(e -> togglePower());
+        espressoButton.addActionListener(e -> selectDrink("Espresso"));
+        latteButton.addActionListener(e -> selectDrink("Coffee Latte"));
         insertMoneyButton.addActionListener(e -> insertMoney());
+        insertMoneyButton.addActionListener(e -> returnChange(insertedMoney)); // Example for returning change
         refillButton.addActionListener(e -> refillResources());
     }
 
-    private void startMachine() {
-        messageLabel.setText("Select a drink");
-        espressoButton.setEnabled(true);
-        latteButton.setEnabled(true);
-        insertMoneyButton.setEnabled(false);
-        refillButton.setEnabled(true);
-        resetTimer();
-    }
-
-    private void selectDrink(String drink, double price) {
+    private void selectDrink(String drink) {
         if (!resourcesAvailable) {
             messageLabel.setText("Not enough ingredients. Please refill.");
             return;
@@ -81,13 +94,20 @@ public class CoffeeMachine {
         resetTimer();
     }
 
+    // Moved the change calculation to occur immediately after money is inserted
     private void insertMoney() {
         String input = JOptionPane.showInputDialog("Insert money (0.5, 1.0, 0.1 BD)");
         try {
             double money = Double.parseDouble(input);
             if (money == 0.5 || money == 1.0 || money == 0.1) {
                 insertedMoney += money;
-                checkPayment();
+                double price = selectedDrink.equals("Espresso") ? 0.5 : 0.7;
+                if (insertedMoney >= price) {
+                    returnChange(price);
+                    dispenseDrink();
+                } else {
+                    messageLabel.setText("Inserted " + insertedMoney + " BD. Continue inserting.");
+                }
             } else {
                 messageLabel.setText("Invalid coin. Please insert 0.5, 1.0, or 0.1 BD.");
             }
@@ -97,9 +117,21 @@ public class CoffeeMachine {
         resetTimer();
     }
 
+    // Updated the returnChange method to ensure change is returned correctly
+    private void returnChange(double price) {
+        if (insertedMoney > price) {
+            double change = insertedMoney - price;
+            JOptionPane.showMessageDialog(frame, "Returning change: " + change + " BD.");
+        } else {
+            JOptionPane.showMessageDialog(frame, "No change to return.");
+        }
+        insertedMoney = 0; // Reset inserted money
+    }
+
     private void checkPayment() {
         double price = selectedDrink.equals("Espresso") ? 0.5 : 0.7;
         if (insertedMoney >= price) {
+            returnChange(price);
             dispenseDrink();
         } else {
             messageLabel.setText("Inserted " + insertedMoney + " BD. Continue inserting.");
@@ -108,10 +140,6 @@ public class CoffeeMachine {
 
     private void dispenseDrink() {
         messageLabel.setText("Dispensing " + selectedDrink);
-        insertedMoney = 0; // Reset inserted money
-        espressoButton.setEnabled(false);
-        latteButton.setEnabled(false);
-        insertMoneyButton.setEnabled(false);
         resetTimer();
     }
 
